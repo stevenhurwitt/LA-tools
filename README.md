@@ -1,8 +1,6 @@
 # LA-tools
 
-Contains Python tools for Load Analytics at Engie, NA.
-
-# Overview
+Contains Python tools for Load Analytics department - Engie, NA.
 
 ## 1. Cap Tag Report
 
