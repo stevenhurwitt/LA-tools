@@ -10,7 +10,7 @@ Pulls from TPPE and outputs .csv file of cap and trans tags for all meters in a 
 Checks start and end dates of tags with start and stop dates of PR.
 Can be used to batch through multiple PR's.
 
-### to do
+### To Do
 
 Add functionality similar to Offer Summary Main tool - check tags with summer and winter peaks.
 
@@ -19,7 +19,7 @@ Add functionality similar to Offer Summary Main tool - check tags with summer an
 
 Parses EWX .json files and outputs forecasts to .csv (can be used if EWX forecasts aren't coming through to ALPS).
 
-### to do
+### To Do
 
 Add functionality to parse payloads we send to EWX (can be used for tickets, to recover data, etc.).
 Add functionality to check heartbeat (time difference) of forecasts.
