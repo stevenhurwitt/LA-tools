@@ -5,7 +5,7 @@ Contains Python tools for Load Analytics department - Engie, NA.
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/stevenhurwitt/LA-tools/master)
 
 ## Cap Tag Report 
-[Cap Tag Directory] (CapReports/Cap Tag Reports.ipynb)
+Found in [Cap Tag Directory](CapReports/Cap Tag Reports.ipynb) .
 
 Creates Cap Tag Report given PR and Revision numbers (as "PR_rev").
 
@@ -19,6 +19,7 @@ Add functionality similar to Offer Summary Main tool - check tags with summer an
 
 
 ## 2. .json to .csv Parser
+Found in [this file](Forecasts - JSON to Pandas DF.ipynb)
 
 Parses EWX .json files and outputs forecasts to .csv (can be used if EWX forecasts aren't coming through to ALPS).
 
@@ -28,6 +29,7 @@ Add functionality to parse payloads we send to EWX (can be used for tickets, to 
 Add functionality to check heartbeat (time difference) of forecasts.
 
 ## 3. NEPOOL IDR Drop
+Found in [IDR_Drop Directory](IDR_Drop/)
 
 1. Email scrape tool - Parses utility emails for accounts, EPO logins and passwords.
 2. EPO webscrape tool - Automates downloading of IDR data from EPO portal.
