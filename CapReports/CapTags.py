@@ -1,24 +1,7 @@
-from selenium.webdriver import Chrome
-from selenium.webdriver.chrome.options import Options
-import selenium.webdriver.support.ui as ui
-from selenium.webdriver.common.keys import Keys
-import selenium.webdriver as webdriver
-from bs4 import BeautifulSoup
 import numpy as np
 import pandas as pd
-from pandas.io.json import json_normalize
-import json
 import cx_Oracle
 import os
-
-opts = Options()
-opts.headless = True
-opts.add_argument('--ignore-certificate-errors')
-opts.add_argument('--start-maximized')
-prefs ={"profile.default_content_settings.popups": 0, "download.default_directory": "C:\\Users\\wb5888\\Python Code\\CapReport\\Downloads\\", "directory_upgrade": True}
-opts.add_experimental_option("prefs", prefs)
-assert opts.headless
-browser = Chrome(executable_path = 'C:\\Users\\wb5888\\chromedriver.exe', options = opts)
 
 
 def cp_query(pr_num, rev_num):
