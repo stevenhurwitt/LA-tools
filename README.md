@@ -4,7 +4,7 @@ Contains Python tools for Load Analytics department - Engie, NA.
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/stevenhurwitt/LA-tools/master)
 
-## Cap Tag Report 
+## 1. Cap Tag Report 
 Found in [Cap Tag Directory](CapReports/CapTagReports.ipynb) .
 
 Creates Cap Tag Report given PR and Revision numbers (as "PR_rev").
@@ -19,7 +19,7 @@ Add functionality similar to Offer Summary Main tool - check tags with summer an
 
 
 ## 2. .json to .csv Parser
-Found in [this file](Forecasts-JSONtoCSV.ipynb)
+Found in [this file in the main directory](Forecasts-JSONtoCSV.ipynb).
 
 Parses EWX .json files and outputs forecasts to .csv (can be used if EWX forecasts aren't coming through to ALPS).
 
