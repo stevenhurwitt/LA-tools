@@ -4,6 +4,6 @@ jsonschema
 matplotlib
 cx_Oracle
 selenium
-wincom32.client
+pywin32
 pprint
 bs4
