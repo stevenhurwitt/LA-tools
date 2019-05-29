@@ -13,9 +13,7 @@ Pulls from TPPE and outputs .csv file of cap and trans tags for all meters in a 
 Checks start and end dates of tags with start and stop dates of PR.
 Can be used to batch through multiple PR's.
 
-### To Do
-
-Add functionality similar to Offer Summary Main tool - check tags with summer and winter peaks.
+**To Do** Add functionality similar to Offer Summary Main tool - check tags with summer and winter peaks.
 
 
 ## 2. .json to .csv Parser
@@ -23,9 +21,7 @@ Found in [this file in the main directory](Forecasts-JSONtoCSV.ipynb).
 
 Parses EWX .json files and outputs forecasts to .csv (can be used if EWX forecasts aren't coming through to ALPS).
 
-### To Do
-
-Add functionality to parse payloads we send to EWX (can be used for tickets, to recover data, etc.).
+**To Do** Add functionality to parse payloads we send to EWX (can be used for tickets, to recover data, etc.).
 Add functionality to check heartbeat (time difference) of forecasts.
 
 ## 3. NEPOOL IDR Drop
