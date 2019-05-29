@@ -4,7 +4,7 @@ Contains Python tools for Load Analytics department - Engie, NA.
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/stevenhurwitt/LA-tools/master)
 
-## 1. Cap Tag Report
+## 1. [Cap Tag Report](CapReports/Cap Tag Reports.ipynb)
 
 Creates Cap Tag Report given PR and Revision numbers (as "PR_rev").
 
