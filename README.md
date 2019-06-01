@@ -24,10 +24,19 @@ Parses EWX .json files and outputs forecasts to .csv (can be used if EWX forecas
 **To Do** Add functionality to parse payloads we send to EWX (can be used for tickets, to recover data, etc.).
 Add functionality to check heartbeat (time difference) of forecasts.
 
-## 3. NEPOOL IDR Drop
+## 3. EWX Forecasting Clone
+Found in [EWX Forecasting Directory](EWX_Forecast/)
+
+Attempts to replicate EWX Forecasting default flow configs. Goal is to be given Engie's payload to EWX (as .json) and output a similarly forecasted ch. 3 and cap tags
+
+**To Do** Interpolation, fill time gaps, timeshift usage, etc. etc.
+
+## 4. NEPOOL IDR Drop
 Found in [IDR_Drop Directory](IDR_Drop/)
 
 1. [Email scrape tool](/IDR_Drop/emailscrape.py) - Parses utility emails for accounts, EPO logins and passwords.
 2. [EPO webscrape tool](/IDR_Drop/EPOwebscrape.py) - Automates downloading of IDR data from EPO portal.
 3. [IDR filter](/IDR_Drop/IDRdrop.py) - splits IDR data into Raw IDR files, filters raw IDR into ch. 1 and/or ch. 3 to be dropped into ALPS.
 4. [Main code](/IDR_Drop/Van_Pham_IDR_Drop.py) - puts everything together, to be automated.
+
+**To Do** Fix bug in webscrape, or make workaround where we can drop downloaded raw (groups of ~5) to directory where **IDR filter** will parse these into IDR_Success, IDR_Error folders
