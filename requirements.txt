@@ -6,3 +6,4 @@ cx_Oracle
 selenium
 pprint
 bs4
+tox
