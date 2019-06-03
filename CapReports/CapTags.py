@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 from pandas.io.json import json_normalize
+import datetime as dt
 import json
 import cx_Oracle
 import os
@@ -148,7 +149,61 @@ def export_report(PR_rev, Write_dir):
         else:
             print('command not recognized, input "yes" or "no".')
             
+            
+def fix_my_PR(cap_report):
 
+    sub = cap_report.loc[:,['AccountID', 'ContractID', 'Revision', 'StartTime', 'StopTime']]
+
+    start_checks = [starts.month == 6 and starts.day == 1 for starts in sub.StartTime]
+    stop_checks = [stops.month == 5 and stops.day == 31 for stops in sub.StopTime]
+
+    sub['start_flag'] = start_checks
+    sub['stop_flag'] = stop_checks
+
+    sub.head()
+
+    def fix_starts(data):
+    
+        if not data.start_flag:
+            new_date = dt.datetime(year = data.StartTime.year, month = 6, day = 1)
+            return(new_date)
+    
+        else:
+            return(data.StartTime)
+
+    def fix_stops(data):
+    
+        if not data.stop_flag:
+            new_date = dt.datetime(year = data.StopTime.year, month = 5, day = 31)
+            return(new_date)
+    
+        else:
+            return(data.StopTime)
+
+    prob_start = []
+    prob_stop = []
+
+    for index, row in sub.iterrows():
+        up_start = fix_starts(row)
+        up_stop = fix_stops(row)
+    
+        prob_start.append((index, up_start))
+        prob_stop.append((index, up_stop))
+    
+    prob_start = pd.DataFrame.from_records(prob_start)
+    prob_stop = pd.DataFrame.from_records(prob_stop)
+
+    prob_start.columns = ['index', 'right start']
+    prob_stop.columns = ['index', 'right stop']
+
+    problems = pd.concat([prob_start, prob_stop], join = 'inner', axis = 1).drop(['index'], axis = 1)
+
+    updated = sub.join(problems)
+    choose = [not (a and b) for a, b in zip(updated.start_flag, updated.stop_flag)]
+    final = updated[choose]
+    
+    return(final)
+            
 def batch_reports(PR_rev_list, Write_dir):
     
     for pr in PR_rev_list:
