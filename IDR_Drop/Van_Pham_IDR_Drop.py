@@ -19,9 +19,6 @@ def main():
 
     try:
         test = pd.DataFrame.from_dict(output_dict, orient = 'index')
-        if type(test.date[0]) == str:
-            test.date = pd.to_datetime(test.date)
-            
         sub = test[test.date > last_days]
         
         accts_success = [len(accts) > 0 for accts in sub.accts]
@@ -37,15 +34,11 @@ def main():
             os.chdir(base_path)
         
     except:
-        
         with open(filename, 'r') as f:
             emails = json.load(f)
             emails = json.loads(emails)
             
         test = pd.DataFrame.from_dict(emails, orient = 'index')
-        if type(test.date[0]) == str:
-            test.date = pd.to_datetime(test.date)
-            
         sub = test[test.date > last_days]
         
         accts_success = [len(accts) > 0 for accts in sub.accts]
@@ -61,6 +54,11 @@ def main():
             os.chdir(base_path)
         
     email_error = []
+
+    print('using', len(good.index.values), 'recent emails.')
+
+    name = filename.replace('.json', '.csv')
+    good.to_csv(name, header = True, index = False)
     
     for item in good.index.values:
         
@@ -137,12 +135,15 @@ def scrape_data(user_, pw_, ngrid, acct_list):
         for aid in aid_list:
             final.append(aid)
 
+    success = False
+
     try:
         n = 5
         final2 = [final[i * n:(i + 1) * n] for i in range((len(final) + n - 1) // n )]  
 
         for elem in final2:
             EPOwebscrape.export_data(elem, browser)
+        success = True
 
     except:
         n = 2
@@ -150,6 +151,13 @@ def scrape_data(user_, pw_, ngrid, acct_list):
 
         for elem in final2:
             EPOwebscrape.export_data(elem, browser)
+        success = True
+
+    if success:
+        print('sucess for', user)
+
+    else:
+        print('error for', user)
 
 def split_data():
     

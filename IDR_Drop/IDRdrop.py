@@ -34,6 +34,13 @@ def raw_split(filedf, readdir, writedir):
 
     account = filedf.Account.unique()
     fail = []
+    
+    util = str(acct_from_LDC(account[0])).split('_')[0]
+    writedir = "\\".join([writedir, util])
+    
+    print(util)
+    print(writedir)
+    
     os.chdir(writedir)
     print('found ' + str(len(account)) + ' accounts.')
 
@@ -119,7 +126,11 @@ def data_drop(rawfile, readpath, writepath):
         os.chdir(readpath)
 
         #print('reading file...')
-        raw = pd.read_csv(rawfile, sep = ",", header = 0)
+        try:
+            raw = pd.read_csv(rawfile, sep = ",", header = 0)
+        
+        except:
+            raw = pd.read_excel(rawfile, header = 0, sheet_name = 0)
 
         #group by units to filter kWh
         combos = dict(list(raw.groupby('Units')))
@@ -130,6 +141,7 @@ def data_drop(rawfile, readpath, writepath):
         uniq_channels = pd.unique(rel_channels['Channel'])
 
         utility = rawfile.split("_")[0]
+        #utility = "CLP"
         writepath = writepath + str(utility)
         
         os.chdir(writepath)
@@ -139,6 +151,13 @@ def data_drop(rawfile, readpath, writepath):
         
             clean_file1 = rawfile.replace("_RAW", "")
             clean_file2 = rawfile.replace("RAW", "3")
+            
+            #clean_file1 = rawfile.replace("CityofStamford", "CLP")
+            #clean_file2 = rawfile.replace("CityofStamford", "CLP_3")
+            
+            #clean_file1 = clean_file1.replace(".xlsx", ".csv")
+            #clean_file2 = clean_file2.replace(".xlsx", ".csv")
+
 
             for channel in uniq_channels:
                 if(len(channel) == 1) and (int(channel) == 4):
@@ -180,5 +199,7 @@ def data_drop(rawfile, readpath, writepath):
         elif len(uniq_channels) == 1:
             clean_data = raw.loc[raw.Units == 'kWh',:]
             clean_file = rawfile.replace("_RAW", "")
+            #clean_file = rawfile.replace("CityofStamford", "CLP")
+            #clean_file = clean_file.replace(".xlsx", ".csv")
             #print("writing single channel data...")
             mindthegap(clean_data, clean_file, .4, .7)
