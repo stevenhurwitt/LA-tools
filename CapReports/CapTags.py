@@ -1,5 +1,8 @@
+
 import numpy as np
 import pandas as pd
+from pandas.io.json import json_normalize
+import json
 import cx_Oracle
 import os
 
@@ -61,30 +64,48 @@ def checkPRdates(data, PR_rev):
     PRstart, PRstop = OracleAPI(query)[0]
 
 
-    missing_start = []
-    missing_stop = []
+    missing_start_cap = []
+    missing_stop_cap = []
+    date_error_cap = []
+    date_error_cap = []
     
+    missing_start_trans = []
+    missing_stop_trans = []
+    date_error_trans = []
     
 
     for acct in np.unique(data.LDC_Account):
     
         if min(data.StartTime[data.LDC_Account == acct]) > PRstart:
             print('PR start date before first Cap Tag, acct: ', acct)
-            missing_start.append(acct)
+            missing_start_cap.append(acct)
     
         if max(data.StopTime[data.LDC_Account == acct]) < PRstop:
             print('PR end date after latest Cap Tag, acct: ', acct)
-            missing_stop.append(acct)
+            missing_stop_cap.append(acct)
+        
+        start_checks = [starts.month == 6 and starts.day == 1 for starts in data.StartTime[data.LDC_Account == acct]]
+        
+        stop_checks = [stops.month == 5 and stops.day == 31 for stops in data.StopTime[data.LDC_Account == acct]]
+        
+        if (False in start_checks) or (False in stop_checks):
+            date_error_cap.append(acct)
+         
+            
+    if len(date_error_cap) > 0:
+        print('date error:', date_error_cap)
 
-
-    if len(missing_start) > 0:
-        print("cap tags don't cover PR start for: ", missing_start)
+    if len(missing_start_cap) > 0:
+        print("cap tags don't cover PR start for: ", missing_start_cap)
     
-    if len(missing_stop) > 0:
-        print("cap tags don't cover PR end for: ", missing_stop)
+    if len(missing_stop_cap) > 0:
+        print("cap tags don't cover PR end for: ", missing_stop_cap)
 
-    elif len(missing_start) == len(missing_stop) == 0:
+    elif len(missing_start_cap) == len(missing_stop_cap) == 0:
         print("cap tags cover PR start & end dates for all accts in", PR_rev)
+        
+    date_error_np = np.unique(np.array(date_error_cap))
+    return(date_error_np)
     
 
 def get_report(PR_rev):
