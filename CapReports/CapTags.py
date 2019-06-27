@@ -1,10 +1,14 @@
 
 import numpy as np
 import pandas as pd
-from pandas.io.json import json_normalize
 import datetime as dt
+from pandas.io.json import json_normalize
+from subprocess import Popen, PIPE
+import matplotlib.pyplot as plt
+from collections import deque
 import json
 import cx_Oracle
+import math
 import os
 
 
@@ -22,14 +26,6 @@ def cp_query(pr_num, rev_num):
     s2str = "".join([s2str, "where A.uidaccount=B.uidaccount and (A.marketcode='PJM' OR  A.marketcode='NEPOOL' OR A.marketcode= 'NYISO' OR A.marketcode= 'MISO') "])
     s2str = "".join([s2str, "and (B.overridecode ='TRANSMISSION_TAG_OVRD' OR B.overridecode='CAPACITY_TAG_OVRD') "])
     s2str = "".join([s2str, "order by A.customername, B.overridecode, A.accountid, B.starttime"])
-
-    uid = 'tesi_interface'
-    pwd = 'peint88'
-
-    ip = '172.25.152.125'
-    port = '1700'
-    service_name = 'tppe.mytna.com'
-    dsn = cx_Oracle.makedsn(ip, port, service_name=service_name)
 
     return(s2str)
 
@@ -150,60 +146,192 @@ def export_report(PR_rev, Write_dir):
             print('command not recognized, input "yes" or "no".')
             
             
-def fix_my_PR(cap_report):
+def download_idr(pr_rev, report, write_dir):
 
-    sub = cap_report.loc[:,['AccountID', 'ContractID', 'Revision', 'StartTime', 'StopTime']]
+    subfolder = "_".join([pr_rev, 'CH3'])
+    idr_dir = os.path.join(write_dir, subfolder)
 
-    start_checks = [starts.month == 6 and starts.day == 1 for starts in sub.StartTime]
-    stop_checks = [stops.month == 5 and stops.day == 31 for stops in sub.StopTime]
-
-    sub['start_flag'] = start_checks
-    sub['stop_flag'] = stop_checks
-
-    sub.head()
-
-    def fix_starts(data):
+    try:
+        os.mkdir(idr_dir)
+        print('created directory: {}'.format(idr_dir))
     
-        if not data.start_flag:
-            new_date = dt.datetime(year = data.StartTime.year, month = 6, day = 1)
-            return(new_date)
+    except:
+        print('dir already created.')
     
-        else:
-            return(data.StartTime)
 
-    def fix_stops(data):
+    meters = np.unique(report.AccountID)
+    n = len(meters)
+    time = round(3.4*n, 4)
+
+    print('downloading forecasts for {} meters...'.format(len(np.unique(report.AccountID))))
+    print('expect to take {} seconds.'.format(time))
+    count = 0
+
+    for index, accts in enumerate(meters):
+        idr_file = ''.join([accts, '.csv'])
     
-        if not data.stop_flag:
-            new_date = dt.datetime(year = data.StopTime.year, month = 5, day = 31)
-            return(new_date)
+        if idr_file not in os.listdir(idr_dir):
+            try:
+                pipe_import(idr_file, idr_dir)
     
-        else:
-            return(data.StopTime)
-
-    prob_start = []
-    prob_stop = []
-
-    for index, row in sub.iterrows():
-        up_start = fix_starts(row)
-        up_stop = fix_stops(row)
+            except:
+                print('error w/ download, acct {}.'.format(accts))
     
-        prob_start.append((index, up_start))
-        prob_stop.append((index, up_stop))
+        elif idr_file in os.listdir(idr_dir):
+            pass
     
-    prob_start = pd.DataFrame.from_records(prob_start)
-    prob_stop = pd.DataFrame.from_records(prob_stop)
+        count += 1
+        if (count > 0 and count % 5 == 0):
+            print('downloaded data for {} out of {} meters...'.format(count, n))
+        
+    print('download complete')
+    return(meters, idr_dir)
 
-    prob_start.columns = ['index', 'right start']
-    prob_stop.columns = ['index', 'right stop']
 
-    problems = pd.concat([prob_start, prob_stop], join = 'inner', axis = 1).drop(['index'], axis = 1)
+def merge_idr(meters, idr_dir):
 
-    updated = sub.join(problems)
-    choose = [not (a and b) for a, b in zip(updated.start_flag, updated.stop_flag)]
-    final = updated[choose]
+    print("importing and merging .csv's...")
+    master_idr = pd.DataFrame()
+
+    for accts in meters:
     
-    return(final)
+        try:
+            idr_file = ''.join([accts, '.csv'])
+    
+            acct_idr = data_import(idr_file, idr_dir)
+            acct_idr.columns = [accts]
+    
+            master_idr = pd.concat([master_idr, acct_idr], axis = 1)
+            master_idr.fillna(0, axis = 1)
+    
+        except:
+            print('import error, acct {}.'.format(accts))
+
+        
+    print('read in and merged ch 3.')
+    master_idr.head()
+    master_idr.fillna(0, axis = 1)
+    
+    return(master_idr)
             
+
+def offer_summary(master_idr, report, min_cp, min_diff):
+
+    tag_date = dt.datetime.strptime('2019-08-29 17:00:00', '%Y-%m-%d %H:%M:%S')
+
+    act_max = pd.DataFrame(master_idr.apply(max, axis = 0))
+    cp_max = master_idr.loc[master_idr.index == tag_date].reset_index(drop = True).T
+
+    start_yrs = [yr.year == 2019 for yr in report.StartTime]
+    cap = report[['AccountID', 'Tag']].loc[start_yrs].reset_index(drop = True)
+    cap = cap.set_index('AccountID')
+
+    annual_use = pd.DataFrame(.001*master_idr.apply(sum, axis = 0), columns = ['Annual_Use'])
+
+    peak_data = pd.concat([annual_use, act_max, cp_max, cap], axis = 1).round(decimals = 3)
+    peak_data.columns = ['Annual_Use_MWh', 'Act_Peak', 'CP', 'Tag']
+    peak_data['Act_Tag_Diff'] = (peak_data.Act_Peak - peak_data.Tag)/peak_data.Tag*100
+    peak_data['Cap_Tag_Diff'] = (peak_data.CP - peak_data.Tag)/peak_data.Tag*100
+    
+    print(peak_data)
+
+    tot_vol = round(sum(peak_data.Annual_Use_MWh), 4)
+    tot_peak = round(sum(peak_data.Act_Peak), 4)
+    tot_CP = round(sum(peak_data.CP), 4)
+    tag_tot = round(sum(peak_data.Tag), 4)
+
+    print('PR has total usage of {} MWh.'.format(tot_vol))
+    print('PR has an estimated tag total of {} kWh.'.format(tag_tot))
+    print('PR has CP peak sum of {} kWh.'.format(tot_CP))
+    print('PR has peak (sum(act_peak)) of {} kWh, and {} meters.'.format(tot_peak, len(peak_data.index)))
+    high_cp = [p > min_cp for p in peak_data.CP]
+    big_err = [abs(d) > min_diff for d in peak_data.Cap_Tag_Diff]
+    probs = [a and b for a, b in zip(high_cp, big_err)]
+
+    problems = peak_data[probs]
+    
+    if problems.empty:
+        print('no cap tags included - try lowering parameters.')
+        return
+    
+    n = len(problems.index)
+    a = math.ceil(math.sqrt(n))
+    b = n // a
+
+    if (a * b < n):
+        if (a < b):
+            a += 1
+        else:
+            b += 1
+
+    fig, axes = plt.subplots(nrows=a, ncols=b, sharex=True, sharey=False, figsize=(50,30))
+    
+        
+    print('graphing forecasts...')
+    
+    if n == 1:
+        ax = axes
+        
+        meter = problems.index[0]
+        ax.set_title(meter, fontsize = 36);
+        plt.rc('font', size = 28)
+        meter_df = master_idr.loc[:,meter]
+        rec_yr = [a < 2020 for a in meter_df.index.year]
+        meter_df[rec_yr].plot(y = meter, ax = ax);
+        
+    elif n > 1:
+        
+        axes_list = [item for sublist in axes for item in sublist]
+        axes_list = deque(axes_list)
+
+        for m in problems.index:
+
+            ax = axes_list.popleft();
+            ax.set_title(m, fontsize = 36);
+            plt.rc('font', size = 28)
+            meter_df = master_idr.loc[:,m]
+            rec_yr = [a < 2020 for a in meter_df.index.year]
+            meter_df[rec_yr].plot(y = m, ax = ax);
+        
+    
+    return(problems)
+
+
+def pipe_import(filename, path):
+
+    account = filename.split('.')[0]
+    ch = '3'
+    final = ",".join([account, ch])
+    write_path = os.path.join(path,filename)
+
+    cmd_prmpt = ["C:\LODESTAR\Bin\intdexp", "-c", "Data Source=TPPE;User ID=tesi_interface;Password=peint88;LSProvider=ODP;",\
+                 "-q", "pwrline", "-f", "C:\LODESTAR\cfg\examples\Cfg\lodestar.cfg", "-s", "01/01/2019", "-t", "12/31/2019",\
+                 "-dtuse", "PARTIAL", "-d", "hi", final, "-o", write_path]
+
+    x = Popen(cmd_prmpt, stdout = PIPE, stderr = PIPE)
+    output, errors = x.communicate()
+    
+    
+def data_import(file, path):
+    
+    os.chdir(path)
+    data = pd.read_csv(file, header = None, index_col = 0, skiprows = 6)
+
+    data.reset_index(drop = True, inplace = True)
+    data.drop(data.columns[[1, 3]], axis = 1, inplace = True)
+    data.columns = ['ch3', 'time']
+    data.time = pd.to_datetime(data.time)
+    data.index = data.time
+    data.drop(data.columns[1], axis = 1, inplace = True)
+    
+    return(data)
+
+
+def issue_command(command):
+    process = Popen(command, stdout=PIPE, stderr=PIPE, shell=True)
+    return process.communicate()
+    
+
 def batch_reports(PR_rev_list, Write_dir):
     
     for pr in PR_rev_list:
