@@ -1,0 +1,22 @@
+,0
+v,usage value
+d,weekday
+h,hour
+pz,periodic zeros
+lr,low read
+mon,month
+vd,value difference
+td,time difference
+gap,flag for gaps (td =/= 1)
+rm,rolling mean
+mc,mean centered usage
+crm,centered rolling mean
+crsd,centered rolling std dev
+var,variance
+spike,flags spikes
+dip,flags dips
+dst,flags dst
+min,"flags errors (lr, pz, gap, spike, dip, dst)"
+date_zip,interpolated values
+err,minutes (for nonhourly data)
+interp,day and hour combined
