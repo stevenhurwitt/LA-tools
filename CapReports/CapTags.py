@@ -244,7 +244,7 @@ def offer_summary(master_idr, report, min_cp, min_diff):
     print('PR has an estimated tag total of {} kWh.'.format(tag_tot))
     print('PR has CP peak sum of {} kWh.'.format(tot_CP))
     print('PR has peak (sum(act_peak)) of {} kWh, and {} meters.'.format(tot_peak, len(peak_data.index)))
-    high_cp = [p > min_cp for p in peak_data.CP]
+    high_cp = [p > min_cp for p in peak_data.Tag]
     big_err = [abs(d) > min_diff for d in peak_data.Cap_Tag_Diff]
     probs = [a and b for a, b in zip(high_cp, big_err)]
 
