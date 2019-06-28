@@ -38,9 +38,10 @@ def sortdir(filepath, num):
 def read_idr(filename, header_index):
     f = pd.read_csv(filename, header = header_index)
     f.columns = ['t', 'v']
+    f['v'] = pd.to_numeric(f['v'], errors = 'coerce')
     f.t = pd.to_datetime(f.t)
     f.set_index('t', inplace = True, drop = True)
-    f.v = [float(val) for val in f.v]
+    f.fillna(0, inplace = True)
     return(f)
 
 def merge_idr(meter_data):
@@ -111,7 +112,7 @@ def parse_engie(payload):
         sca_payload = pd.DataFrame.from_dict(ts_sca_data).iloc[:,1:]
         sca_payload['start'] = pd.to_datetime(sca_payload.start)
         sca_payload['stop'] = pd.to_datetime(sca_payload.stop)
-        sca_payload.v = [float(val) for val in sca_payload.v]
+        sca_payload['v'] = pd.to_numeric(sca_payload['v'], errors = 'coerce')
     
     except:
         sca_payload = None
@@ -123,7 +124,7 @@ def parse_engie(payload):
     hb = ts_idr_data[0]['heartbeat']
     print('found', hb, 'heartbeats')
     idr_payload = pd.DataFrame.from_dict(ts_idr_data[0]['reads'])
-    idr_payload.v = [float(val) for val in idr_payload.v]
+    idr_payload['v'] = pd.to_numeric(idr_payload['v'], errors = 'coerce')
     
     idr_payload.t = pd.to_datetime(idr_payload.t)
     idr_payload = idr_payload.set_index(pd.DatetimeIndex(idr_payload.t))
@@ -136,7 +137,7 @@ def parse_engie(payload):
         reads = ts_idr_data[i]['reads']
         temp = pd.DataFrame.from_dict(reads)
         
-        temp.v = [float(val) for val in temp.v]
+        temp['v'] = pd.to_numeric(temp['v'], errors = 'coerce')
     
         temp.t = pd.to_datetime(temp.t)
         temp = temp.set_index(pd.DatetimeIndex(temp.t))
@@ -162,7 +163,7 @@ def parse_engie(payload):
         caps_df = pd.DataFrame.from_records(caps, index = [0]).iloc[:,2:]
         caps_df['start'] = pd.to_datetime(caps_df['start'])
         caps_df['stop'] = pd.to_datetime(caps_df['stop'])
-        caps_df.v = [float(val) for val in caps_df.v]
+        caps_df['v'] = pd.to_numeric(caps_df['v'], coerce = 'errors')
     
     except:
         caps_df = None
@@ -404,12 +405,12 @@ def forecast_main(json_file, years, read, write):
             except:
                 idr = pd.read_csv(filename)
                 idr.columns = ['t', 'v']
-                idr.v = [float(val) for val in idr.v]
+                idr['v'] = pd.to_numeric(idr['v'])
                 idr.t = pd.to_datetime(idr.t)
                 idr.set_index(pd.DatetimeIndex(idr.t), inplace = True, drop = True)
                 idr = idr.drop('t', axis = 1)
             
-        idr = idr.loc[pd.notnull(idr.index),:]
+        idr.fillna(.123456789, inplace = True)
         print('read {} from {}.'.format(filename, read))
     
     else:
@@ -420,12 +421,12 @@ def forecast_main(json_file, years, read, write):
         idr = pd.read_csv(filename)
         print(idr.head())
         idr.columns = ['t', 'v']
-        idr.v = [float(val) for val in idr.v]
+        idr['v'] = pd.to_numeric(idr['v'], errors = 'coerce')
         idr.t = pd.to_datetime(idr.t)
         idr.set_index(pd.DatetimeIndex(idr.t), inplace = True, drop = True)
         idr = idr.drop('t', axis = 1)
             
-        idr = idr.loc[pd.notnull(idr.index),:]
+        idr.fillna(.123456789, inplace = True)
         print('read {} from {}.'.format(filename, read))
     
 
@@ -458,10 +459,12 @@ def forecast_main(json_file, years, read, write):
     tmp2 = fix_interval(tmp2)
     print('...')
     
+    tmp2['na'] = [v == .123456789 for v in tmp2['v']]
+    
     print('usage validated.')
     
     print('running usage estimation flags...')
-    data_filter = [a or b or c or d for a, b, c, d in zip(tmp2.lr, tmp2.gap, tmp2.spike, tmp2.dip)]
+    data_filter = [a or b or c or d or e for a, b, c, d, e in zip(tmp2.lr, tmp2.gap, tmp2.spike, tmp2.dip, tmp2.na)]
     tmp2['err'] = data_filter
     
     tmp2['interp'] = interp(tmp2.v, tmp2.err)
