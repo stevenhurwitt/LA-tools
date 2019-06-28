@@ -4,6 +4,8 @@ import numpy as np
 import datetime as dt
 import matplotlib.pyplot as plt
 import json
+import math
+from collections import deque
 import pprint
 import os
 
@@ -32,6 +34,68 @@ def sortdir(filepath, num):
     print("files found in dir: ", filepath)
     print(filedf.head(num))
     return(filedf.head(num))
+
+def read_idr(filename, header_index):
+    f = pd.read_csv(filename, header = header_index)
+    f.columns = ['t', 'v']
+    f.t = pd.to_datetime(f.t)
+    f.set_index('t', inplace = True, drop = True)
+    f.v = [float(val) for val in f.v]
+    return(f)
+
+def merge_idr(meter_data):
+
+    master = pd.DataFrame()
+    cols = []
+
+    for meter, data in meter_data.items():
+        master = pd.concat([master, data], axis = 1)
+        cols.append(meter)
+    
+    master.columns = cols
+    print(master.head())
+    return(master)
+
+def iter_plot(idr_df):
+    n = len(idr_df.columns)
+    a = math.ceil(math.sqrt(n))
+    b = n // a
+
+    if (a * b < n):
+        if (a < b):
+            a += 1
+        else:
+            b += 1
+
+    fig, axes = plt.subplots(nrows=a, ncols=b, sharex=True, sharey=False, figsize=(50,30))
+    
+        
+    print('graphing forecasts...')
+    
+    if n == 1:
+        ax = axes
+        
+        meter = idr_df.columns[0]
+        ax.set_title(meter, fontsize = 36);
+        plt.rc('font', size = 28)
+        #rec_yr = [a < 2020 for a in meter_df.index.year]
+        idr_df.plot(y = meter, ax = ax);
+        
+    elif n > 1:
+        
+        axes_list = [item for sublist in axes for item in sublist]
+        axes_list = deque(axes_list)
+
+        for m in idr_df.columns:
+
+            ax = axes_list.popleft();
+            ax.set_title(m, fontsize = 36);
+            plt.rc('font', size = 28)
+            
+            meter_df = idr_df.loc[:,m]
+            #rec_yr = [a < 2020 for a in meter_df.index.year]
+            meter_df.plot(y = m, ax = ax);
+
 
 def parse_engie(payload):
 
