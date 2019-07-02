@@ -16,7 +16,7 @@ var,variance
 spike,flags spikes
 dip,flags dips
 dst,flags dst
-min,"flags errors (lr, pz, gap, spike, dip, dst)"
-date_zip,interpolated values
-err,minutes (for nonhourly data)
-interp,day and hour combined
+min,minutes (for nonhourly data) 
+date_zip,day and hour combined
+err,"flags errors (lr, pz, gap, spike, dip, dst)"
+interp,interpolated values
