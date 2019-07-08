@@ -53,6 +53,28 @@ def OracleAPI(query):
 
 def checkPRdates(data, PR_rev):
     
+    cap = [a.split('_')[0] == 'CAPACITY' for a in data.TagType]
+    trans = [a.split('_')[0] == 'TRANSMISSION' for a in data.TagType]
+    caps = data[cap]
+    trans_data = data[trans]
+    
+    output = []
+    
+    if np.sum(cap) > 0:
+        cap_error_df = cap_check(caps, PR_rev)
+        output.append(cap_error_df)
+    
+    if np.sum(trans) > 0:
+        trans_error_df = trans_check(trans_data, PR_rev)
+        output.append(trans_error_df)
+  
+    return(output)
+    
+    
+def cap_check(data, PR_rev):
+    
+    ### make dataframe with errors:
+    ## missing start, missing stop, bad date, E string, zero tag, tag gap
     pr_num = PR_rev.split('_')[0]
     rev_num = PR_rev.split('_')[1]
 
@@ -60,50 +82,140 @@ def checkPRdates(data, PR_rev):
 
     PRstart, PRstop = OracleAPI(query)[0]
 
-
     missing_start_cap = []
     missing_stop_cap = []
+    est_cap = []
+    zero_cap = []
+    date_gap_cap = []
     date_error_cap = []
-    date_error_cap = []
-    
-    missing_start_trans = []
-    missing_stop_trans = []
-    date_error_trans = []
     
 
     for acct in np.unique(data.LDC_Account):
     
         if min(data.StartTime[data.LDC_Account == acct]) > PRstart:
-            print('PR start date before first Cap Tag, acct: ', acct)
-            missing_start_cap.append(acct)
+            missing_start_cap.append(('missing start', acct))
     
         if max(data.StopTime[data.LDC_Account == acct]) < PRstop:
-            print('PR end date after latest Cap Tag, acct: ', acct)
-            missing_stop_cap.append(acct)
+            missing_stop_cap.append(('missing stop', acct))
         
         start_checks = [starts.month == 6 and starts.day == 1 for starts in data.StartTime[data.LDC_Account == acct]]
         
         stop_checks = [stops.month == 5 and stops.day == 31 for stops in data.StopTime[data.LDC_Account == acct]]
         
         if (False in start_checks) or (False in stop_checks):
-            date_error_cap.append(acct)
+            date_error_cap.append(('bad date', acct))
          
-            
-    if len(date_error_cap) > 0:
-        print('date error:', date_error_cap)
-
-    if len(missing_start_cap) > 0:
-        print("cap tags don't cover PR start for: ", missing_start_cap)
-    
-    if len(missing_stop_cap) > 0:
-        print("cap tags don't cover PR end for: ", missing_stop_cap)
-
-    elif len(missing_start_cap) == len(missing_stop_cap) == 0:
-        print("cap tags cover PR start & end dates for all accts in", PR_rev)
+        est_tag = [string == 'E' for string in data.SourceType[data.LDC_Account == acct]]
         
-    date_error_np = np.unique(np.array(date_error_cap))
-    return(date_error_np)
+        if (True in est_tag):
+            est_cap.append(('estimated tag', acct))
+            
+        zero_tag = [val == 0 for val in data.Tag[data.LDC_Account == acct]]
+        
+        if (True in zero_tag):
+            zero_cap.append(('zero tag', acct))
+            
+        diffs = []
+        td = data.StopTime[data.LDC_Account == acct].diff()
+        td[td.isnull()] = dt.timedelta(days = 365)
+        yr_diff = [round(a / dt.timedelta(days = 365)) for a in td]
+        
+        m = len(yr_diff)
+        last_diff = yr_diff.pop()
+        if (last_diff != 10) or (len(yr_diff) != (m - 1)):
+            date_gap_cap.append(('tag gap', acct))
+            
+        
+        date_error_cap = missing_start_cap + missing_stop_cap + est_cap + zero_cap
+        
+        e = dict()
+        [e [t [0]].append(t [1]) if t [0] in list(e.keys()) 
+             else e.update({t [0]: [t [1]]}) for t in date_error_cap]
+        
+        cap_error_df = pd.DataFrame.from_dict(e, orient = 'index')
+            
     
+    if cap_error_df.empty:
+        print("cap tags cover PR start & end dates for all accts in", PR_rev)
+    
+    else:
+        print(cap_error_df)
+        
+    return(cap_error_df)
+              
+
+def trans_check(data, PR_rev):
+    
+    ### make dataframe with errors:
+    ## missing start, missing stop, bad date, E string, zero tag, tag gap
+    pr_num = PR_rev.split('_')[0]
+    rev_num = PR_rev.split('_')[1]
+
+    query = "select starttime, stoptime from pwrline.lscmcontract where contractid='" + pr_num + "' and revision=" + rev_num
+
+    PRstart, PRstop = OracleAPI(query)[0]
+
+    missing_start_trans = []
+    missing_stop_trans = []
+    est_trans = []
+    zero_trans = []
+    date_gap_trans = []
+    date_error_trans = []
+    
+
+    for acct in np.unique(data.LDC_Account):
+    
+        if min(data.StartTime[data.LDC_Account == acct]) > PRstart:
+            missing_start_trans.append(('missing start', acct))
+    
+        if max(data.StopTime[data.LDC_Account == acct]) < PRstop:
+            missing_stop_trans.append(('missing stop', acct))
+        
+        start_checks = [starts.month == 1 and starts.day == 1 for starts in data.StartTime[data.LDC_Account == acct]]
+        
+        stop_checks = [stops.month == 12 and stops.day == 31 for stops in data.StopTime[data.LDC_Account == acct]]
+        
+        if (False in start_checks) or (False in stop_checks):
+            date_error_trans.append(('bad date', acct))
+         
+        est_tag = [string == 'E' for string in data.SourceType[data.LDC_Account == acct]]
+        
+        if (True in est_tag):
+            est_trans.append(('estimated tag', acct))
+            
+        zero_tag = [val == 0 for val in data.Tag[data.LDC_Account == acct]]
+        
+        if (True in zero_tag):
+            zero_trans.append(('zero tag', acct))
+            
+        diffs = []
+        td = data.StopTime[data.LDC_Account == acct].diff()
+        td[td.isnull()] = dt.timedelta(days = 365)
+        yr_diff = [round(a / dt.timedelta(days = 365)) for a in td]
+        
+        m = len(yr_diff)
+        last_diff = yr_diff.pop()
+        if (last_diff != 10) or (len(yr_diff) != (m - 1)):
+            date_gap_trans.append(('tag gap', acct))
+            
+        
+        date_error_trans = missing_start_trans + missing_stop_trans + est_trans + zero_trans
+        
+        e = dict()
+        [e [t [0]].append(t [1]) if t [0] in list(e.keys()) 
+             else e.update({t [0]: [t [1]]}) for t in date_error_cap]
+        
+        trans_error_df = pd.DataFrame.from_dict(e, orient = 'index')
+            
+    
+    if cap_error_df.empty:
+        print("trans tags cover PR start & end dates for all accts in", PR_rev)
+    
+    else:
+        print(trans_error_df)
+        
+    return(trans_error_df)
+              
 
 def get_report(PR_rev):
     
@@ -202,7 +314,7 @@ def merge_idr(meters, idr_dir):
             acct_idr.columns = [accts]
     
             master_idr = pd.concat([master_idr, acct_idr], axis = 1)
-            master_idr.fillna(0, axis = 1)
+            master_idr.fillna(0, inplace = True, axis = 1)
     
         except:
             print('import error, acct {}.'.format(accts))
@@ -210,7 +322,7 @@ def merge_idr(meters, idr_dir):
         
     print('read in and merged ch 3.')
     master_idr.head()
-    master_idr.fillna(0, axis = 1)
+    master_idr.fillna(0, inplace = True, axis = 1)
     
     return(master_idr)
             
