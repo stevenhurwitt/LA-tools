@@ -366,7 +366,7 @@ def timeshift(data, until):
     future = gen_year(data, 364)
     future = future
     master = pd.concat([year_data, future], axis = 0)
-    print('forecasted year {} of {} with {} reads.'.format(year, until, len(future.lin)))
+    print('forecasted year {} of {} with {} reads.'.format(year, until-1, len(future.lin)))
     year += 1
     
     while year < until:
@@ -378,10 +378,11 @@ def timeshift(data, until):
         forecast = gen_year(master, num_days)
         forecast = forecast
         master = pd.concat([master, forecast], axis = 0)
-        print('forecasted year {} of {} with {} reads.'.format(year, until, len(forecast.lin)))
+        print('forecasted year {} of {} with {} reads.'.format(year, until-1, len(forecast.lin)))
         year += 1
         
-    master = master['lin']
+    master = pd.DataFrame(master['lin'])
+    master.columns = ['v']
     
     return(master)
 
