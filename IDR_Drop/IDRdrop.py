@@ -2,8 +2,6 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import time
-import math
 import cx_Oracle
 import os
 
@@ -43,8 +41,8 @@ def raw_split(filedf, readdir, writedir):
         sub = filedf.loc[filedf.Account == name,:].reset_index(drop = True)
 
         acct_id = acct_from_LDC(name)
-        time.sleep(5)
-        write_name = str(acct_id) + "_IDR_RAW.csv"
+        
+        write_name = ''.join([acct_id, "_IDR_RAW.csv"])
         
         if write_name not in os.listdir(writedir):
             
@@ -56,9 +54,6 @@ def raw_split(filedf, readdir, writedir):
             except:
                 print('error writing ', write_name)
                 fail.append(False)
-                
-        else:
-            print('{} already in directory {}'.format(write_name, writedir))
 
     return(fail)
     
@@ -115,12 +110,18 @@ def acct_from_LDC(acct):
     cur = con.cursor()
     query = "select distinct B.AccountID from pwrline.acctservicehist D, pwrline.account B  where B.name like '%" + str(acct) + "%' and D.marketcode = 'NEPOOL'"
     cur.execute(query)
-
+    
     for result in cur:
         acct_id = result[0].split('NEPOOL_')[1]
-        return(acct_id)
         
-    
+        market = acct_id.split('_')[0]
+        ldc = acct_id.split('_')[1:]
+        if len(ldc) > 1:
+            ldc = '_'.join(ldc)
+        
+        new_id = '_'.join([ldc, market])
+        
+    return(new_id)
 
 #function to turn raw IDR into cleaned IDR file
 def data_drop(rawfile, readpath, writepath):
@@ -138,7 +139,15 @@ def data_drop(rawfile, readpath, writepath):
         rel_channels.groupby('Channel')
         uniq_channels = pd.unique(rel_channels['Channel'])
 
-        utility = rawfile.split("_")[0]
+        full_file_name = rawfile.split("_")
+        for item in full_file_name:
+            try:
+                int(item)
+                pass
+            except:
+                utility = item
+                break
+            
         writepath = writepath + str(utility)
         
         os.chdir(writepath)
