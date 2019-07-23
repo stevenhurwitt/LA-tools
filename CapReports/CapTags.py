@@ -362,8 +362,7 @@ def offer_summary(master_idr, report, min_cp, min_diff):
     print('PR has CP peak sum of {} kWh.'.format(tot_CP))
     print('PR has peak (sum(act_peak)) of {} kWh, and {} meters.'.format(tot_peak, len(peak_data.index)))
     high_cp = [p > min_cp for p in peak_data.Tag]
-    big_err = [((abs(d) > min_diff) or (abs(e) > min_diff)) and (d != float('inf') and e != float('inf')) for d, e in zip(peak_data.Act_Tag_Diff, peak_data.Cap_Tag_Diff)]
-    
+    big_err = [(abs(d) > min_diff) and (d != float('inf')) for d in peak_data.Act_Tag_Diff]
     
     probs = [a and b for a, b in zip(high_cp, big_err)]
 
@@ -400,17 +399,21 @@ def offer_summary(master_idr, report, min_cp, min_diff):
         
     elif n > 1:
         
-        axes_list = [item for sublist in axes for item in sublist]
-        axes_list = deque(axes_list)
+        try:
+            axes_list = [item for sublist in axes for item in sublist]
+            axes_list = deque(axes_list)
 
-        for m in problems.index:
+            for m in problems.index:
 
-            ax = axes_list.popleft();
-            ax.set_title(m, fontsize = 36);
-            plt.rc('font', size = 28)
-            meter_df = master_idr.loc[:,m]
-            rec_yr = [a < 2020 for a in meter_df.index.year]
-            meter_df[rec_yr].plot(y = m, ax = ax);
+                ax = axes_list.popleft();
+                ax.set_title(m, fontsize = 36);
+                plt.rc('font', size = 28)
+                meter_df = master_idr.loc[:,m]
+                rec_yr = [a < 2020 for a in meter_df.index.year]
+                meter_df[rec_yr].plot(y = m, ax = ax);
+                
+        except:
+            print('plot failed to iterate with params (a, b, n): {}, sorry man (needs debug)'.format((a, b, n)))
         
     
     return(problems)
