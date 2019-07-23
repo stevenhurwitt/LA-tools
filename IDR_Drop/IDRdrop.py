@@ -111,17 +111,24 @@ def acct_from_LDC(acct):
     query = "select distinct B.AccountID from pwrline.acctservicehist D, pwrline.account B  where B.name like '%" + str(acct) + "%' and D.marketcode = 'NEPOOL'"
     cur.execute(query)
     
-    for result in cur:
-        acct_id = result[0].split('NEPOOL_')[1]
+    try:
+        for result in cur:
+            acct_id = result[0].split('NEPOOL_')[1]
         
-        market = acct_id.split('_')[0]
-        ldc = acct_id.split('_')[1:]
-        if len(ldc) > 1:
-            ldc = '_'.join(ldc)
+            market = acct_id.split('_')[0]
+            ldc = acct_id.split('_')[1:]
+            if len(ldc) > 1:
+                ldc = '_'.join(ldc)
         
-        new_id = '_'.join([ldc, market])
+            new_id = '_'.join([ldc, market])
         
-    return(new_id)
+        return(new_id)
+    
+    except:
+        print('error pulling name for {}.'.format(acct))
+        new_id = acct.split(' ')[0]
+        return(new_id)
+    
 
 #function to turn raw IDR into cleaned IDR file
 def data_drop(rawfile, readpath, writepath):

@@ -48,22 +48,29 @@ def logon(username, pw, ngrid):
     opts.headless = True
     opts.add_argument('--ignore-certificate-errors')
     opts.add_argument('--start-maximized')
-    prefs ={"profile.default_content_settings.popups": 0, "download.default_directory": "C:\\Users\\wb5888\\Python Code\\IDR_Drop\\Downloads\\", "directory_upgrade": True}
+
+    try:
+        prefs ={"profile.default_content_settings.popups": 0, "download.default_directory": "C:\\Users\\wb5888\\Python Code\\IDR_Drop\\Downloads\\", "directory_upgrade": True}
+
+    except:
+        prefs ={"profile.default_content_settings.popups": 0, "download.default_directory": "/Volumes/USB30FD/Python Code/IDR_Drop/Downloads//", "directory_upgrade": True}
+
     opts.add_experimental_option("prefs", prefs)
     assert opts.headless
 
     #setup headless browser, get ngrid url
-    browser = Chrome(executable_path = 'C:\\Users\\wb5888\\chromedriver.exe', options = opts)
-    #browser = Chrome(executable_path = '/Users/stevenhurwitt/chromedriver', options = opts)
+    try:
+        browser = Chrome(executable_path = 'C:\\Users\\wb5888\\chromedriver.exe', options = opts)
+
+    except:
+        browser = Chrome(executable_path = '/Users/stevenhurwitt/chromedriver', options = opts)
     
     if ngrid == True:
         url = 'https://ngrid.epo.schneider-electric.com/ngrid/cgi/eponline.exe'
-        #url = 'https:\\ngrid.epo.schneider-electric.com\\ngrid\\cgi\\eponline.exe'
         
     if ngrid == False:
         url = 'https://eversource.epo.schneider-electric.com/eversource/cgi/eponline.exe'
-        #url = 'https:\\eversource.epo.schneider-electric.com\\eversource\\cgi\\eponline.exe'
-
+        
     browser.get(url)
        
     #see all elements on pg
@@ -73,7 +80,7 @@ def logon(username, pw, ngrid):
     #store username, pw, etc
     #send values to login
     #try:
-    wait = ui.WebDriverWait(browser,10)
+    wait = ui.WebDriverWait(browser,30)
     wait.until(lambda browser: browser.find_element_by_id('userid'))
     
     user = browser.find_element_by_id('userid')
@@ -94,7 +101,7 @@ def logon(username, pw, ngrid):
     print('logging on...')
     login.click()
     browser.execute_script('''function submitlogin(event) {document.frmEPO.submit();}''' )
-    wait = ui.WebDriverWait(browser,10)
+    wait = ui.WebDriverWait(browser,30)
     wait.until(lambda browser: browser.find_element_by_id('LastNDays'))
 
     ##Accounts Page
@@ -118,38 +125,30 @@ def export_data(list_of_5, browser):
     
     browser.execute_script('''document.frmEPO.button.value='export'; document.frmEPO.submit();''')
 
-    browser.implicitly_wait(20)
+    wait = ui.WebDriverWait(browser,10)
+    wait.until(lambda browser: browser.find_element_by_id('userid'))
 
-    
-    print('disabling demand...')
-    browser.execute_script('''function disabledemand() {if (document.frmEPO.demand) {
-		document.frmEPO.demand.disabled=true;
-		document.frmEPO.demand.checked=false;}}; disabledemand''')
-            
-    print('selecting hourly interval...')
-    browser.execute_script('''function setintervaltype() {if (document.frmEPO.demand && document.frmEPO.intervaltype[0]) {
-	if ( document.frmEPO.demand.checked == true ) {
-	if ( document.frmEPO.intervaltype[1].checked == true ) {alert("Convert to Demand can only be selected with the Native Interval Length. [Un-check Convert to Demand if Hourly data is desired]");}
-	    document.frmEPO.intervaltype[0].checked = true;
-	    document.frmEPO.intervaltype[1].checked = false;
-	    document.frmEPO.intervaltype[0].disabled = true;
-	    document.frmEPO.intervaltype[1].disabled = true;}
-	else {document.frmEPO.intervaltype[0].disabled = false;
-	    document.frmEPO.intervaltype[1].disabled = false;
-	    document.frmEPO.intervaltype[1].checked = true;
-	    document.frmEPO.intervaltype[0].checked = false;}}}; setintervaltype()''')
+    try:
+        browser.execute_script('''document.frmEPO.intervaltype[0].checked = false; document.frmEPO.intervaltype[1].checked = true;''')
 
-    print('submitting...')
-    browser.execute_script('''document.frmEPO.button.value="contin"''')
-    browser.execute_script('''document.frmEPO.submit();''')
+        browser.execute_script('''document.frmEPO.intervaltype[0].checked = false; document.frmEPO.intervaltype[1].checked = true;''')
+        browser.execute_script('''document.frmEPO.button.value="contin"''')
+        browser.execute_script('''; document.frmEPO.submit();''')
 
-    browser.implicitly_wait(20)
-    link = browser.find_element_by_partial_link_text('Hourly Data File')
-    link.click()
-    print('downloaded EPO data file.')
+        link = browser.find_element_by_link_text('Hourly Data File(60 minutes per interval)(CSV)')
+        link.click()
+        print('downloaded EPO data file.')
     
-    browser.back()
-    browser.back()
+        browser.back()
+        browser.back()
     
-    for item in list_of_5:
-        check_the_box(item, browser)
+        for item in list_of_5:
+            check_the_box(item, browser)
+
+    except:
+
+                print('download failed')
+                browser.back()
+    
+                for item in list_of_5:
+                    check_the_box(item, browser)

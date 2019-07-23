@@ -143,8 +143,7 @@ def admin_to_dict(body):
                 name = ('name', split_item[1])
 
             elif split_item[0] == 'Account Number':
-                acct_list = [str(acct) for acct in split_item[1].split(' ')]
-                accts = ('accts', acct_list)
+                accts = ('accts', split_item[1])
         
         row = [user, pw, name, accts]
     
@@ -312,8 +311,7 @@ def get_emails():
         
     except:
         print('error parsing EPO admin')
-        error += 1
-        master = {}
+        error += 2
     
     try:
         ngrid_scrape, j4 = iter_mail(ngrid_to_dict, ngrid, j3)
@@ -321,12 +319,12 @@ def get_emails():
         
     except:
         print('error parsing ngrid')
-        error += 1
+        error += 3
         if error == 3:
             quit
     
 
-    print('error with', error, 'of 3 inboxes')
+
     print('found ', len(master.keys()), ' new emails: ')
     
     pretty_json = json.dumps(master, default = lambda date: date_to_str(date), sort_keys = True, indent = 4)
@@ -344,9 +342,3 @@ def get_emails():
     #https://docs.microsoft.com/en-us/office/vba/api/outlook.mailitem
 
 
-def main():
-    output_dict, filename = get_emails()
-    print('file saved as', filename)
-    return(output_dict)
-
-main()
