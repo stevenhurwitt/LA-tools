@@ -229,20 +229,6 @@ def periodic_zero(idr, margin, threshold):
     
     return(zeros)
 
-def interval_gap_check(tmp2):
-    val_diff = tmp2.v.diff().fillna(value = 0)
-    time_diff = tmp2.index.to_series().diff()
-    time_diff = time_diff.dt.seconds.div(3600, fill_value = 3600)
-
-    tmp2['vd'] = val_diff
-    tmp2['td'] = time_diff
-    
-    #check interval gaps
-    gap_after_index = [(float(td) != 1) for td in time_diff]
-    tmp2['gap'] = gap_after_index
-    
-    return(tmp2)
-
 
 def variance_validation(tmp2, time_window, centered, n_sd):
 
@@ -260,11 +246,40 @@ def variance_validation(tmp2, time_window, centered, n_sd):
     return(tmp2)
 
 
+##fix bad time interval (15 min, etc)
+## EWX port: interval gap check (data)
+## appends columns - vd: value difference (float)
+##                  td: time difference (timedelta, hours)
+##                 gap: gap after index (bool)
+##
+#### lives inside fix_interval() function
+
+def interval_gap_check(tmp2):
+    val_diff = tmp2.v.diff().fillna(value = 0)
+    time_diff = tmp2.index.to_series().diff()
+    time_diff = time_diff.dt.seconds.div(3600, fill_value = 3600)
+
+    tmp2['vd'] = val_diff
+    tmp2['td'] = time_diff
+    
+    #check interval gaps
+    gap_after_index = [(float(td) != 1) for td in time_diff]
+    tmp2['gap'] = gap_after_index
+    
+    return(tmp2)
+
+## DST Check (data)
+## check between DST periods for either:
+## duplicate hour or missing hour.
+## appends column - dst: flag for dst errors need fill (bool)
+##
+#### lives inside fix_interval()
+
 def dst_check(tmp2):
-    beg_for = dt.datetime.strptime('03/08/2018', '%m/%d/%Y')
-    end_for = dt.datetime.strptime('03/14/2018', '%m/%d/%Y')
-    beg_back = dt.datetime.strptime('11/01/2018', '%m/%d/%Y')
-    end_back = dt.datetime.strptime('11/07/2018', '%m/%d/%Y')
+    beg_for = dt.datetime.strptime('03/08/2019', '%m/%d/%Y')
+    end_for = dt.datetime.strptime('03/14/2019', '%m/%d/%Y')
+    beg_back = dt.datetime.strptime('10/31/2019', '%m/%d/%Y')
+    end_back = dt.datetime.strptime('11/07/2019', '%m/%d/%Y')
     
     date_check = [(((date >= beg_for) and (date <= end_for)) or ((date >= beg_back) and (date <= end_back))) for date in tmp2.index]
     
@@ -275,29 +290,68 @@ def dst_check(tmp2):
     
     return(tmp2)
 
-##fix bad time interval (15 min, etc)
+#### fix nonhourly intervals (data)
+## groups data by date (zipped breakdown of y/m/d hh:mm),
+## sums over minutes per y/m/d hour,
+## subsets to only hours.
+## merges with data, returns.
+##
+#### lives inside fix_interval()
+
+
+def fix_nonhour(data):
+    hourly = data.groupby(data['date']).sum()
+    
+    real_val = hourly['v']
+    real_val.reset_index(drop = True, inplace = True)
+
+    time = forecast.index.to_series()
+    hr_time = time[[a == 0 for a in forecast['min']]]
+    hr_time.reset_index(drop = True, inplace = True)
+
+    adj_forecast = pd.concat([hr_time, real_val], axis = 1)
+    adj_forecast.columns = ['t', 'v']
+
+    adj = adj_forecast[adj_forecast.t.notnull()]
+    adj.set_index('t', drop = True, inplace = True)
+
+    if (len(adj) == len(data.v)):
+        data = pd.merge(tmp2, adj, how = 'left', right_index = True, left_on = ['date'])
+    
+    else:
+        print('length mismatch - trying merge anyways (expect NAs).')
+        data = pd.merge(tmp2, adj, how = 'left', right_index = True, left_on = ['date'])
+        
+    return(data)
+        
+
+## fix time intervals (data)
+## breaks dates into zipped date (y/m/d hh:mm)
+## applies gap check, DST check, nonhourly fix
+##
+## returns dataset with cols of validation results
+
 def fix_interval(data):
     
-    times = data.index.to_series()
+    times = data.index
     times = pd.to_datetime(times)
 
-    minute = [int(v.minute) for v in times]
-    data['min'] = minute
-
-    date = list(zip(data.d, data.h))
-    data['date_zip'] = date
+    data['min'] = [time.minute for time in times]
+    data['y'] = [time.year for time in times]
+    data['h'] = [time.hour for time in times]
+    data['d'] = [time.day for time in times]
+    data['mon'] = [time.month for time in times]
     
-    bad_time = data.loc[data.td != 1,:]
-    good_time = data.loc[data.td == 1,:]
+    data['date'] = list(zip(data.y, data.mon, data.d, data.h, data.min))
     
-    bt_group = bad_time.groupby([bad_time.date_zip])
-
-    final = bad_time.loc[bad_time['min'] == 0,:]
-    adj_v = [4*val for val in final.v]
-
-    final['v'] = adj_v
-
-    final_out = pd.concat([good_time, final], axis = 0)
+    data = interval_gap_check(data)
+    data = dst_check(data)
+    data = dst_fix(data)
+    data = fix_nonhour(data)
+    idr.fillna(.123456789, inplace = True)
+    data['na'] = [a == .123456788 for a in idr.v]
+        
+    final_out = data.copy()
     final_out.sort_index(inplace = True)
 
     return(final_out)
