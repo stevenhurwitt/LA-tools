@@ -6,4 +6,5 @@ cx_Oracle
 selenium
 pprint
 bs4
-tox
+oauth2client
+pytz
