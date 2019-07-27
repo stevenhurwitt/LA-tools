@@ -1,5 +1,22 @@
 # Services for Jupyterhub
 
+## Privacy Policy
+
+Privacy Notice
+This privacy notice discloses the privacy practices for (website address). This privacy notice applies solely to information collected by this website. It will notify you of the following:
+
+What personally identifiable information is collected from you through the website, how it is used and with whom it may be shared.
+The security procedures in place to protect the misuse of your information.
+
+We are the sole owners of the information collected on this site. We only have access to/collect information that you voluntarily give us via email or other direct contact from you. We will not sell or rent this information to anyone.
+
+We will use your information to respond to you, regarding the reason you contacted us. We will not share your information with any third party outside of our organization, other than as necessary to fulfill your request, e.g. to ship an order.
+
+
+While we use encryption to protect sensitive information transmitted online, we also protect your information offline. Only employees who need the information to perform a specific job  are granted access to personally identifiable information. The computers/servers in which we store personally identifiable information are kept in a secure environment.
+
+If you feel that we are not abiding by this privacy policy, you should contact us via email.
+
 ## LA-tools README
 
 ### 1. Cap Tag Report 
