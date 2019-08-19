@@ -300,13 +300,21 @@ def dst_check(tmp2):
 
 
 def fix_nonhour(data):
+    
+    data['y'] = data.index.year
+    data['mon'] = data.index.month
+    data['d'] = data.index.day
+    data['h'] = data.index.hour
+    data['min'] = data.index.minute
+    
+    data['date'] = list(zip(data.index.year, data.index.month, data.index.day, data.index.hour, data.index.minute))
     hourly = data.groupby(data['date']).sum()
     
     real_val = hourly['v']
     real_val.reset_index(drop = True, inplace = True)
 
-    time = forecast.index.to_series()
-    hr_time = time[[a == 0 for a in forecast['min']]]
+    time = data.index.to_series()
+    hr_time = time[[a == 0 for a in data['min']]]
     hr_time.reset_index(drop = True, inplace = True)
 
     adj_forecast = pd.concat([hr_time, real_val], axis = 1)
@@ -316,11 +324,12 @@ def fix_nonhour(data):
     adj.set_index('t', drop = True, inplace = True)
 
     if (len(adj) == len(data.v)):
-        data = pd.merge(tmp2, adj, how = 'left', right_index = True, left_on = ['date'])
+        data = data.join(adj, how = 'inner', on = 't', lsuffix = '_orig', rsuffix = '')
+        print(data.columns)
     
     else:
         print('length mismatch - trying merge anyways (expect NAs).')
-        data = pd.merge(tmp2, adj, how = 'left', right_index = True, left_on = ['date'])
+        data = pd.merge(data, adj, how = 'left', right_on = 'date', left_on = ['date'])
         
     return(data)
         
@@ -333,23 +342,14 @@ def fix_nonhour(data):
 
 def fix_interval(data):
     
-    times = data.index
-    times = pd.to_datetime(times)
-
-    data['min'] = [time.minute for time in times]
-    data['y'] = [time.year for time in times]
-    data['h'] = [time.hour for time in times]
-    data['d'] = [time.day for time in times]
-    data['mon'] = [time.month for time in times]
-    
-    data['date'] = list(zip(data.y, data.mon, data.d, data.h, data.min))
+    data['date'] = list(zip(data.index.year, data.index.month, data.index.day, data.index.hour, data.index.minute))
     
     data = interval_gap_check(data)
     data = dst_check(data)
     data = dst_fix(data)
-    data = fix_nonhour(data)
-    idr.fillna(.123456789, inplace = True)
-    data['na'] = [a == .123456788 for a in idr.v]
+    #data = fix_nonhour(data)
+    data.fillna(.123456789, inplace = True)
+    data['na'] = [a == .123456788 for a in data.v]
         
     final_out = data.copy()
     final_out.sort_index(inplace = True)
