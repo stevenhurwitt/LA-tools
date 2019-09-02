@@ -2,7 +2,6 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import cx_Oracle
 import os
 
 #function to show top n files in directory sorted by date modified
@@ -30,7 +29,7 @@ def show_dir(path, n):
 
 #function to take file from EPO in readdir of meters in utility
 #splits a downloaded csv from EPO into raw meter IDR files
-def raw_split(filedf, readdir, writedir):
+def raw_split(filedf, readdir, writedir, utility):
 
     account = filedf.Account.unique()
     fail = []
@@ -39,8 +38,9 @@ def raw_split(filedf, readdir, writedir):
 
     for name in account:
         sub = filedf.loc[filedf.Account == name,:].reset_index(drop = True)
-
-        acct_id = acct_from_LDC(name)
+        
+        ldc = str(name).split(' ')[0]
+        acct_id = '_'.join([ldc, utility])
         
         write_name = ''.join([acct_id, "_IDR_RAW.csv"])
         
@@ -72,12 +72,12 @@ def filemerge(df1, df2):
     if fd1 < fd2:
         new_dat = pd.concat([df1, df2], ignore_index = True)
         date_count = new_dat.groupby('Date').agg('count').sum(axis = 1)
-        print('spot check output file at date ', date_count.idxmax())
+        print('spot check output file at date {}.'.format(date_count.idxmax()))
     
     elif fd1 > fd2:
         new_dat = pd.concat([df2, df1], ignore_index = True)
         date_count = new_dat.groupby('Date').agg('count').sum(axis = 1)
-        print('spot check output file at date ', date_count.idxmax())
+        print('spot check output file at date: {}.'.format(date_count.idxmax()))
         
     return new_dat
 
@@ -96,38 +96,6 @@ def mindthegap(df, filename, LB, UB):
             #print(round(1 - p_nzero, 4), "percent zeros, ", filename, " saved.")
             df.to_csv(filename, sep = ",", header = True, index = False)
 
-def acct_from_LDC(acct):
-    
-    uid = 'tesi_interface'
-    pwd = 'peint88'
-
-    ip = '172.25.152.125'
-    port = '1700'
-    service_name = 'tppe.mytna.com'
-    dsn = cx_Oracle.makedsn(ip, port, service_name=service_name)
-   
-    con = cx_Oracle.connect(user = uid, password = pwd, dsn = dsn)
-    cur = con.cursor()
-    query = "select distinct B.AccountID from pwrline.acctservicehist D, pwrline.account B  where B.name like '%" + str(acct) + "%' and D.marketcode = 'NEPOOL'"
-    cur.execute(query)
-    
-    try:
-        for result in cur:
-            acct_id = result[0].split('NEPOOL_')[1]
-        
-            market = acct_id.split('_')[0]
-            ldc = acct_id.split('_')[1:]
-            if len(ldc) > 1:
-                ldc = '_'.join(ldc)
-        
-            new_id = '_'.join([ldc, market])
-        
-        return(new_id)
-    
-    except:
-        print('error pulling name for {}.'.format(acct))
-        new_id = acct.split(' ')[0]
-        return(new_id)
     
 
 #function to turn raw IDR into cleaned IDR file
@@ -154,8 +122,7 @@ def data_drop(rawfile, readpath, writepath):
             except:
                 utility = item
                 break
-            
-        writepath = writepath + str(utility)
+          
         
         os.chdir(writepath)
 
@@ -207,3 +174,20 @@ def data_drop(rawfile, readpath, writepath):
             clean_file = rawfile.replace("_RAW", "")
             #print("writing single channel data...")
             mindthegap(clean_data, clean_file, .4, .7)
+
+def hor_to_vert(file):
+    
+    f = pd.read_csv(file)
+    hrs = f.columns[4:]
+    new_f = f.melt(id_vars = 'Date', value_vars = hrs)
+    dt_ind = new_f['Date'] + ' ' + new_f['variable']
+    new_f.drop(['Date', 'variable'], axis = 1, inplace = True)
+    
+    new_dt = [a.replace('24:00', '00:00') for a in dt_ind]
+    new_f.set_index(pd.to_datetime(new_dt), drop = True, inplace = True)
+    new_f.sort_index(axis = 0, inplace = True)
+    
+    og = file.split('.')
+    new_name = ''.join([og[0], '_vert', '.csv'])
+    new_f.to_csv(new_name, header = None)
+    print('transformed and wrote {} to {}.'.format(file, new_name))
