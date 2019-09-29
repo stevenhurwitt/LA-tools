@@ -1,0 +1,5 @@
+name: la-tools
+channels:
+  - defaults
+prefix: C:\Users\wb5888\AppData\Local\Continuum\anaconda3\envs\la-tools\envs\la-tools
+
