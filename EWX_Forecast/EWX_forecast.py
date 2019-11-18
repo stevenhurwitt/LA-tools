@@ -386,7 +386,7 @@ def gen_year(data, num_days):
     gap_hr = int(divmod(gap.total_seconds(), 3600)[0])
     
     year_data = data[year_back:most_recent]
-    agg = year_data.groupby(['mon', 'd', 'h'])['lin'].median()
+    agg = year_data.groupby(['mon', 'd', 'h'])['lin'].mean()
     year_forward = most_recent + dt.timedelta(days = 364, hours = 24 - most_recent.hour)
     delta = year_forward - most_recent
     delta_hr = int(divmod(delta.total_seconds(), 3600)[0])
@@ -404,7 +404,36 @@ def gen_year(data, num_days):
     forecast['lin'] = agg[forecast.date_zip].reset_index(drop = True).values.tolist()
     return(forecast)
 
-def timeshift(data, until):
+def gen_year_idr(data, num_days, val):
+    most_recent = max(data.index)
+    year_back = most_recent - dt.timedelta(days = num_days, hours = most_recent.hour)
+    oldest = min(data.index)
+    gap = oldest - year_back
+    gap_hr = int(divmod(gap.total_seconds(), 3600)[0])
+    
+    year_data = data[year_back:most_recent]
+    #lin = list(year_data['lin'])
+    val += val
+    #agg = year_data.groupby(['mon', 'd', 'h'])['lin']
+    
+    year_forward = most_recent + dt.timedelta(days = 364, hours = 24 - most_recent.hour)
+    delta = year_forward - most_recent
+    delta_hr = int(divmod(delta.total_seconds(), 3600)[0])
+
+    next_year = []
+    for i in range(1, delta_hr):
+        next_year.append(most_recent + dt.timedelta(hours = i))
+
+    month = [a.month for a in next_year]
+    day = [a.dayofweek for a in next_year]
+    hour = [a.hour for a in next_year]
+
+    forecast = pd.DataFrame({'t':next_year, 'mon':month, 'd':day, 'h':hour, 'date_zip':list(zip(month, day, hour))})
+    forecast.set_index('t', drop = True, inplace = True)
+    #forecast['lin'] = pd.to_numeric(lin)
+    return(forecast, val)
+
+def timeshift(data, until, scalar, vals):
     until += 1
     most_recent = max(data.index)
     year_back = most_recent - dt.timedelta(days = 364, hours = most_recent.hour)
@@ -416,33 +445,65 @@ def timeshift(data, until):
     year_data = data[year_back:most_recent]
     #year_data = year_data
     #print(year_data.head())
-    
-    future = gen_year(data, 364)
-    future = future
-    master = pd.concat([year_data, future], axis = 0)
-    print('forecasted year {} of {} with {} reads.'.format(year, until-1, len(future.lin)))
-    year += 1
-    
-    while year < until:
-        if (year % 6 == 0 and year > 0):
-            num_days = 371
-        else:
-            num_days = 364
-        
-        forecast = gen_year(master, num_days)
-        forecast = forecast
-        master = pd.concat([master, forecast], axis = 0)
-        print('forecasted year {} of {} with {} reads.'.format(year, until-1, len(forecast.lin)))
+
+    if scalar:
+        future = gen_year(data, 364)
+        future = future
+        master = pd.concat([year_data, future], axis = 0)
+        print('forecasted year {} of {} with {} reads.'.format(year, until-1, len(future.lin)))
         year += 1
+    
+        while year < until:
+            if (year % 6 == 0 and year > 0):
+                num_days = 371
+            else:
+                num_days = 364
         
-    master = pd.DataFrame(master['lin'])
-    master.columns = ['v']
+            forecast = gen_year(master, num_days)
+            forecast = forecast
+            master = pd.concat([master, forecast], axis = 0)
+            print('forecasted year {} of {} with {} reads.'.format(year, until-1, len(forecast.lin)))
+            year += 1
+
+        master = pd.DataFrame(master['lin'])
+        master.columns = ['v']
+        
+    else:
+
+        future, vals = gen_year_idr(data, 364, vals)
+        future = future
+        master = pd.concat([year_data, future], axis = 0)
+        n = len(master.index)
+        vals = vals[:2*n]
+        print('forecasted year {} of {} with {} reads.'.format(year, until-1, len(vals)))
+        year += 1
+    
+        while year < until:
+            if (year % 6 == 0 and year > 0):
+                num_days = 371
+            else:
+                num_days = 364
+        
+            forecast, vals = gen_year_idr(master, num_days, vals)
+            m = (year+2)*num_days*24
+            vals = vals[:m]
+
+            master = pd.concat([master, forecast], axis = 0)
+            print('forecasted year {} of {} with {} reads.'.format(year, until-1, len(vals)))
+            year += 1
+        
+        final_n = len(vals)
+        master = master.iloc[:final_n,]
+        master['v'] = vals
+    
+        master = pd.DataFrame(master['v'])
+        master.columns = ['v']
     
     return(master)
 
 
 
-def forecast_main(json_file, years, read, write):
+def forecast_main(json_file, years, read, write, scalar):
     
     print('parsing data files...')
     #parse json file
@@ -541,7 +602,8 @@ def forecast_main(json_file, years, read, write):
         
         
     print('forecasting...')
-    forecast = timeshift(final, years)
+    vals = list(tmp2.lin)
+    forecast = timeshift(final, years, scalar, vals)
     
     if write is not None:
         print('writing forecasts to .csv...')

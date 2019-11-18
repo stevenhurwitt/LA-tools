@@ -186,6 +186,7 @@ def hor_to_vert(file):
     new_dt = [a.replace('24:00', '00:00') for a in dt_ind]
     new_f.set_index(pd.to_datetime(new_dt), drop = True, inplace = True)
     new_f.sort_index(axis = 0, inplace = True)
+    new_f.interpolate(axis = 1, method = 'linear', limit = 7)
     
     og = file.split('.')
     new_name = ''.join([og[0], '_vert', '.csv'])
