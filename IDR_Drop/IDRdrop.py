@@ -40,7 +40,7 @@ def raw_split(filedf, readdir, writedir, utility):
         sub = filedf.loc[filedf.Account == name,:].reset_index(drop = True)
         
         ldc = str(name).split(' ')[0]
-        acct_id = '_'.join([ldc, utility])
+        acct_id = '_'.join([utility, ldc])
         
         write_name = ''.join([acct_id, "_IDR_RAW.csv"])
         
