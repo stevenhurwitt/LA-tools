@@ -1,18 +1,11 @@
-# # Email Scrape
-
-# Read in emails from outlook, store ones from utility EPO in dictionary, parse dictionary to get another dict of accounts, user-id, password.
-
 import win32com.client
-import datetime
+import pandas as pd
+import datetime as dt
 import pprint
 import json
+import os
 
-
-
-# ### Functions to Turn Messages to Dictionaries
-
-# In[41]:
-
+basepath = os.getcwd()
 
 def flatten(l):
     out = []
@@ -27,12 +20,11 @@ def flatten(l):
 def clean_acct(acct):
     return ''.join(acct.split(' - '))
 
-#turn date string into datetime object
 def str_to_date(datestring):
-    return (datetime.datetime.strptime(str(datestring).split('+')[0],"%Y-%m-%d %H:%M:%S"))
+    return (dt.datetime.strptime(str(datestring).split('+')[0],"%Y-%m-%d %H:%M:%S"))
 
 def date_to_str(datetime_obj):
-    return (datetime.datetime.strftime(datetime_obj, format = '%m/%d/%Y %H:%M:%S'))
+    return (dt.datetime.strftime(datetime_obj, format = '%m/%d/%Y %H:%M:%S'))
 
 def Merge(dict1, dict2): 
     res = {**dict1, **dict2} 
@@ -76,6 +68,7 @@ def aaron_to_dict(body):
     accts_tup = ('accts', clean_accts)
     row = [user, pw, name, accts_tup]
     return row
+
 
 def admin_to_dict(body):
     
@@ -186,26 +179,23 @@ def ngrid_to_dict(body):
     row = [user, pw, name, accts]
     return(row)
 
-def iter_mail(sender_func, mailbox, index):
-    
-    today = datetime.datetime.now()
-    last_day = today - datetime.timedelta(1)
-    last_day
 
-    last_day_str = last_day.strftime("%Y-%m-%d %H:%M:%S")
-    last_day_str2 = last_day_str +"+00:00'"
+def iter_mail(sender_func, mailbox, index):
 
     print('scraping emails...')
     #start iterating through emails
     mail = mailbox.GetLast()
     i = index
-    
-    msg_row = sender_func(mail.Body)
-    msg_row.append(('date', str_to_date(mail.ReceivedTime)))
+    try:
+        msg_row = sender_func(mail.Body)
+        msg_row.append(('date', str_to_date(mail.ReceivedTime)))
 
-    master = [(i, dict(msg_row))]
+        master = [(i, dict(msg_row))]
     
-    i += 1
+        i += 1
+    
+    except:
+        master = []
    
     while mail:
         
@@ -271,8 +261,7 @@ def iter_mail(sender_func, mailbox, index):
 #         
 #             #.....
 
-# In[42]:
-
+#https://docs.microsoft.com/en-us/office/vba/api/outlook.mailitem
 
 def get_emails():
 
@@ -287,7 +276,7 @@ def get_emails():
     admin_filter = "[SenderEmailAddress] = 'epoadmin@eversource.com'"
     ngrid_filter = "[SenderEmailAddress] = 'michael.stanton@nationalgrid.com'"
 
-    today = datetime.datetime.now()
+    today = dt.datetime.now()
 
     aaron = messages.Restrict(aaron_filter)
     admin = messages.Restrict(admin_filter)
@@ -299,6 +288,8 @@ def get_emails():
     error = 0
     
     try:
+        print('parsing aaron.downing@eversource.com inbox')
+        print('')
         scrape, j2 = iter_mail(aaron_to_dict, aaron, j)
         
     except:
@@ -307,6 +298,8 @@ def get_emails():
         
     
     try:
+        print('parsing epoadmin@eversource.com')
+        print('')
         admin_scrape, j3 = iter_mail(admin_to_dict, admin, j2)
         master = Merge(scrape, admin_scrape)
         
@@ -316,14 +309,17 @@ def get_emails():
         master = {}
     
     try:
+        print('parsing michael.stanton@nationalgrid.com')
+        print('')
         ngrid_scrape, j4 = iter_mail(ngrid_to_dict, ngrid, j3)
         master = Merge(master, ngrid_scrape)
         
     except:
+        print('')
         print('error parsing ngrid')
         error += 1
         if error == 3:
-            quit
+            pass
     
 
     print('error with', error, 'of 3 inboxes')
@@ -336,17 +332,112 @@ def get_emails():
 
     print('writing .json object')
     
+    os.chdir(os.path.join(basepath, 'Logins'))
+    
     with open(json_name, 'w') as f:
         json.dump(lame_json, f)
     
     #print(pretty_json)
     return master, json_name
-    #https://docs.microsoft.com/en-us/office/vba/api/outlook.mailitem
+ 
+    
+def bodies_json(bodies):
+
+    test = pd.DataFrame.from_dict(bodies, orient = 'index')
+
+    if type(test.date[0]) == str:
+            test.date = pd.to_datetime(test.date)
+
+    accts_success = [len(accts) > 0 for accts in test.accts]
+    accts_fail = [not val for val in accts_success]
+        
+    good = test[accts_success].reset_index(drop = True)
+    util = []
+    
+    for i, a in enumerate(good.accts):
+        first_acct = a[0]
+        leading = a[0][:2]
+        
+        if leading == '80':
+            util.append('PSNH')
+            
+        elif leading == '51' and (len(first_acct.split('_')) > 1):
+            util.append('CLP')
+            
+        elif leading == '54' and (len(first_acct.split('_')) > 1):
+            util.append('WMECO')
+                
+        else:
+            if 'SUEZ' in good.user[i]:
+                util.append('NGRID')
+                
+            else:
+                util.append('NSTAR')
+            
+    good['util'] = util
+        
+
+    email_error = []
+
+    if len(accts_fail) > 0:
+        bad = test[accts_fail].reset_index()
+        mail_error = 'EMAIL_SCRAPE_ERROR.csv'
+
+        bad.to_csv(mail_error, header = True, index = False)
+
+    return(good, bodies)
+
 
 
 def main():
+    
+    #scrape emails, save json of records
+    os.chdir(os.path.join(basepath, 'Logins'))
     output_dict, filename = get_emails()
     print('file saved as', filename)
-    return(output_dict)
+    
+    #json to df
+    email_df = pd.DataFrame.from_dict(output_dict)
+    email_df = email_df.T
+    
+    #get accounts per row
+    expand_acct = []
+    rest = []
+
+    for i, acct in enumerate(email_df.accts):
+        for a in acct:
+            ba = a.split('_')
+            
+            if len(ba) > 1:
+                a = ba[0]
+            expand_acct.append(a)
+            rest.append(email_df.iloc[i,0:])
+            
+    new_email = pd.DataFrame(rest)
+    new_email.reset_index(drop = True, inplace = True)
+    new_email['acct'] = expand_acct
+    
+    #get utility
+    util = []
+
+    for a in new_email.acct:
+        leading = a[:2]
+        if leading == '80':
+            util.append('PSNH')
+        elif leading == '51':
+            util.append('CLP')
+        elif leading == '54':
+            util.append('WMECO')
+        else:
+            util.append('NSTAR_NGRID')
+        
+    new_email['util'] = util
+    
+    test = [(u == 'CLP' or u == 'WMECO') for u in new_email.util]
+    eversource = new_email[test].reset_index(drop = True)
+    
+    print('writing output files.')
+    eversource.to_csv('eversource_logins.csv', index = False)
+    new_email.to_excel('email_logins.xlsx', index = False)
 
 main()
